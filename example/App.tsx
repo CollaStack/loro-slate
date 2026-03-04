@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createEditor, Editor, type Descendant } from "slate";
+import { createEditor, Editor, type Descendant, type NodeEntry } from "slate";
 import { Editable, Slate, withReact } from "slate-react";
-import { LoroDoc, LoroList, LoroMap, LoroText } from "loro-crdt";
+import { EphemeralStore, LoroDoc, LoroList, LoroMap, LoroText } from "loro-crdt";
 import {
   withLoro,
+  withLoroPresence,
   syncSlateValueToLoro,
   loroDocToSlateValue,
+  useLoroDecorate,
+  wrapLoroRenderLeaf,
 } from "../src/index.ts";
 import "./types.ts";
 import { renderElement } from "./renderElement.tsx";
@@ -320,19 +323,37 @@ function peerLabelStyle(idx: number): React.CSSProperties {
 function PeerEditor({
   doc,
   peerIdx,
+  peerKey,
+  store,
   onLocalUpdate,
 }: {
   doc: LoroDoc;
   peerIdx: number;
+  peerKey: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  store: EphemeralStore<any>;
   onLocalUpdate: (update: Uint8Array) => void;
 }) {
   const editor = useMemo(
-    () => withLoro(withReact(createEditor()), { doc }),
+    () =>
+      withLoroPresence(withLoro(withReact(createEditor()), { doc }), {
+        store,
+        key: peerKey,
+        user: { name: `Peer ${peerIdx + 1}`, color: PEER_COLORS[peerIdx] },
+      }),
+    // store and peerKey are stable references
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [doc]
   );
 
   const initialValue = useMemo(() => loroDocToSlateValue(doc), [doc]);
-  const decorate = useMemo(() => makeDecorate(editor), [editor]);
+  const codeDecorate = useMemo(() => makeDecorate(editor), [editor]);
+  const loroDecorate = useLoroDecorate(editor);
+  const decorate = useCallback(
+    (entry: NodeEntry) => [...codeDecorate(entry), ...loroDecorate(entry)],
+    [codeDecorate, loroDecorate]
+  );
+  const wrappedRenderLeaf = useMemo(() => wrapLoroRenderLeaf(renderLeaf), []);
 
   const [showData, setShowData] = useState(false);
   const [loroData, setLoroData] = useState<unknown>(() => serializeLoroDoc(doc));
@@ -341,6 +362,12 @@ function PeerEditor({
   useEffect(() => {
     return doc.subscribeLocalUpdates((bytes) => onLocalUpdate(bytes));
   }, [doc, onLocalUpdate]);
+
+  useEffect(() => {
+    return () => {
+      editor.presence.disconnect();
+    };
+  }, [editor]);
 
   useEffect(() => {
     return doc.subscribe(() => {
@@ -386,7 +413,7 @@ function PeerEditor({
         <Editable
           style={editableStyle}
           renderElement={renderElement}
-          renderLeaf={renderLeaf}
+          renderLeaf={wrappedRenderLeaf}
           decorate={decorate}
           onKeyDown={onKeyDown}
           placeholder="Type something…"
@@ -425,6 +452,17 @@ export function App() {
     return [docA, docB] as const;
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [stores] = useState<readonly [EphemeralStore<any>, EphemeralStore<any>]>(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const storeA = new EphemeralStore<any>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const storeB = new EphemeralStore<any>();
+    storeA.subscribeLocalUpdates((bytes: Uint8Array) => storeB.apply(bytes));
+    storeB.subscribeLocalUpdates((bytes: Uint8Array) => storeA.apply(bytes));
+    return [storeA, storeB] as const;
+  });
+
   const syncAtoB = useCallback(
     (update: Uint8Array) => docs[1].import(update),
     [docs]
@@ -443,8 +481,8 @@ export function App() {
         </p>
       </div>
       <div style={gridStyle}>
-        <PeerEditor doc={docs[0]} peerIdx={0} onLocalUpdate={syncAtoB} />
-        <PeerEditor doc={docs[1]} peerIdx={1} onLocalUpdate={syncBtoA} />
+        <PeerEditor doc={docs[0]} peerIdx={0} peerKey="1" store={stores[0]} onLocalUpdate={syncAtoB} />
+        <PeerEditor doc={docs[1]} peerIdx={1} peerKey="2" store={stores[1]} onLocalUpdate={syncBtoA} />
       </div>
     </div>
   );
