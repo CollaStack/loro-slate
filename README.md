@@ -1,73 +1,70 @@
-# React + TypeScript + Vite
+# loro-slate
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A [Slate](https://docs.slatejs.org/) plugin that integrates [Loro CRDT](https://loro.dev) to enable real-time collaborative editing.
 
-Currently, two official plugins are available:
+## How it works
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Slate's document tree is mirrored into a Loro document:
 
-## React Compiler
+| Slate | Loro |
+|---|---|
+| `Editor.children` | `LoroList` (root `"children"`) |
+| Element node | `LoroMap { type, children: LoroList, ... }` |
+| Text node | `LoroMap { text: LoroText, bold?, italic?, ... }` |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Every local Slate operation is translated into a Loro mutation and committed. Remote Loro events (from other peers) are translated back into Slate operations and applied without re-triggering Loro writes.
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install loro-slate loro-crdt slate slate-react
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Usage
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```ts
+import { LoroDoc } from "loro-crdt";
+import { createEditor } from "slate";
+import { withReact } from "slate-react";
+import { withLoro, syncSlateValueToLoro, loroDocToSlateValue } from "loro-slate";
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+const doc = new LoroDoc();
+const editor = withLoro(withReact(createEditor()), { doc });
+
+// Now you can init the doc data from remote snapshot or somewhere
+// doc.import(snapshot)
 ```
+
+Use `loroDocToSlateValue(doc)` to read the current document state back as a Slate value, and pass it as `initialValue` to `<Slate>`.
+
+To sync between peers, forward `doc.subscribeLocalUpdates` bytes to remote peers and call `doc.import(bytes)` on receipt — Loro handles conflict resolution automatically.
+
+## API
+
+### `withLoro(editor, options)`
+
+Wraps a Slate editor with Loro synchronization. Returns the editor extended with:
+
+- `editor.doc` — the underlying `LoroDoc`
+- `editor.disconnect()` — unsubscribes from Loro events
+
+### `syncSlateValueToLoro(doc, value)`
+
+Writes a Slate `Descendant[]` value into a `LoroDoc`. Use this once to initialize the document.
+
+### `loroDocToSlateValue(doc)`
+
+Reads a `LoroDoc` and returns the equivalent Slate `Descendant[]` value.
+
+## Development
+
+```bash
+bun install
+bun dev   # starts the demo app (two syncing editor peers)
+```
+
+## Peer dependencies
+
+- `loro-crdt` ^1.10.6
+- `slate` ^0.123.0
+- `slate-react` ^0.123.0
