@@ -5,7 +5,7 @@ export function getLoroNode(doc: LoroDoc, path: Path): LoroMap {
   let list: LoroList = doc.getList("children");
   let node!: LoroMap;
   for (let i = 0; i < path.length; i++) {
-    node = list.get(path[i]) as LoroMap;
+    node = list.get(path[i]!) as LoroMap;
     if (i < path.length - 1) {
       list = node.get("children") as unknown as LoroList;
     }

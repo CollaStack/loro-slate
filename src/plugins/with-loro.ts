@@ -106,13 +106,13 @@ function applySlateOpToLoro(doc: LoroDoc, op: Operation): void {
     }
     case "insert_node": {
       const parentList = getLoroParentList(doc, op.path);
-      const index = op.path[op.path.length - 1];
+      const index = op.path[op.path.length - 1]!;
       insertSlateNodeIntoLoroList(parentList, index, op.node as Descendant);
       break;
     }
     case "remove_node": {
       const parentList = getLoroParentList(doc, op.path);
-      const index = op.path[op.path.length - 1];
+      const index = op.path[op.path.length - 1]!;
       parentList.delete(index, 1);
       break;
     }
@@ -152,7 +152,7 @@ function applySplitNodeToLoro(
   op: Extract<Operation, { type: "split_node" }>
 ): void {
   const parentList = getLoroParentList(doc, op.path);
-  const index = op.path[op.path.length - 1];
+  const index = op.path[op.path.length - 1]!;
   const lm = getLoroNode(doc, op.path);
   const textContainer = safeGet(lm, "text");
 
@@ -191,7 +191,7 @@ function applyMergeNodeToLoro(
   op: Extract<Operation, { type: "merge_node" }>
 ): void {
   const parentList = getLoroParentList(doc, op.path);
-  const index = op.path[op.path.length - 1];
+  const index = op.path[op.path.length - 1]!;
   const lm = getLoroNode(doc, op.path);
   const prevMap = getLoroNode(doc, [...op.path.slice(0, -1), index - 1]);
   const textContainer = safeGet(lm, "text");
@@ -225,13 +225,13 @@ function applyMoveNodeToLoro(
   const nodeData = loroMapToSlateNode(getLoroNode(doc, op.path));
 
   const oldParentList = getLoroParentList(doc, op.path);
-  oldParentList.delete(op.path[op.path.length - 1], 1);
+  oldParentList.delete(op.path[op.path.length - 1]!, 1);
 
   const adjusted = adjustPathAfterRemoval(op.path, op.newPath);
   const newParentList = getLoroParentList(doc, adjusted);
   insertSlateNodeIntoLoroList(
     newParentList,
-    adjusted[adjusted.length - 1],
+    adjusted[adjusted.length - 1]!,
     nodeData
   );
 }
@@ -250,9 +250,9 @@ function adjustPathAfterRemoval(removedPath: Path, targetPath: Path): Path {
     d < removedPath.length &&
     d < targetPath.length &&
     d === removedPath.length - 1 &&
-    removedPath[d] < targetPath[d]
+    removedPath[d]! < targetPath[d]!
   ) {
-    result[d]--;
+    result[d]!--;
   }
   return result;
 }
