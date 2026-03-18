@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Path, Range, Text, type BaseRange, type NodeEntry } from "slate";
 import type { RenderLeafProps } from "slate-react";
-import { PresenceCaret } from "./PresenceCaret";
 import { peerToColor, withAlpha } from "./color-utils";
 
 import type { LoroEditor } from "../plugins/with-loro";
@@ -17,7 +16,6 @@ import { cursorToSlatePoint } from "../plugins/with-loro-presence";
 // ────────────────────────────────────────────────────────────
 
 export const LORO_SELECTION_KEY = "loroPresenceSelection";
-export const LORO_CARET_KEY = "loroPresenceCaret";
 
 export interface LoroDecorationMark {
   peer: string;
@@ -120,7 +118,6 @@ export function useLoroDecorate(
           Path.equals(presence.anchor.path, presence.focus.path) &&
           presence.anchor.offset === presence.focus.offset;
 
-        // Selection background for non-collapsed ranges
         if (!isCollapsed) {
           const intersection = Range.intersection(
             selRange as Range,
@@ -129,16 +126,6 @@ export function useLoroDecorate(
           if (intersection) {
             result.push({ ...intersection, [LORO_SELECTION_KEY]: mark });
           }
-        }
-
-        // Caret at the focus point
-        if (Path.equals(presence.focus.path as number[], path)) {
-          const caretPoint = { path, offset: presence.focus.offset };
-          result.push({
-            anchor: caretPoint,
-            focus: caretPoint,
-            [LORO_CARET_KEY]: mark,
-          });
         }
       }
 
@@ -155,15 +142,18 @@ export function useLoroDecorate(
 // ────────────────────────────────────────────────────────────
 
 /**
- * Wraps an existing `renderLeaf` to add remote cursor and selection rendering.
- * Selection ranges get a translucent background; carets render a coloured
- * blinking bar with the user's name label.
+ * Wraps an existing `renderLeaf` to add remote selection highlighting.
+ * Selection ranges get a translucent background.
+ *
+ * Remote carets are rendered separately via `<CursorOverlay>`.
  *
  * ```tsx
- * <Editable
- *   decorate={loroDecorate}
- *   renderLeaf={wrapLoroRenderLeaf(renderLeaf)}
- * />
+ * <CursorOverlay editor={editor}>
+ *   <Editable
+ *     decorate={loroDecorate}
+ *     renderLeaf={wrapLoroRenderLeaf(renderLeaf)}
+ *   />
+ * </CursorOverlay>
  * ```
  */
 export function wrapLoroRenderLeaf(
@@ -175,7 +165,6 @@ export function wrapLoroRenderLeaf(
     const selectionMark = leaf[LORO_SELECTION_KEY] as
       | LoroDecorationMark
       | undefined;
-    const caretMark = leaf[LORO_CARET_KEY] as LoroDecorationMark | undefined;
 
     let { children } = props;
 
@@ -186,15 +175,6 @@ export function wrapLoroRenderLeaf(
         <span style={{ backgroundColor: withAlpha(color, 0.3) }}>
           {children}
         </span>
-      );
-    }
-
-    if (caretMark) {
-      children = (
-        <>
-          {children}
-          <PresenceCaret peer={caretMark.peer} user={caretMark.user} />
-        </>
       );
     }
 

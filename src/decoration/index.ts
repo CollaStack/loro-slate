@@ -1,2 +1,4 @@
 export * from "./react";
-export * from "./PresenceCaret";
+export * from "./CursorOverlay";
+export * from "./useOverlayPositions";
+export * from "./getOverlayPosition";

@@ -9,6 +9,7 @@ import {
   loroDocToSlateValue,
   useLoroDecorate,
   wrapLoroRenderLeaf,
+  CursorOverlay,
 } from "../src/index.ts";
 import "./types.ts";
 import { renderElement } from "./renderElement.tsx";
@@ -354,6 +355,8 @@ function PeerEditor({
     [codeDecorate, loroDecorate]
   );
   const wrappedRenderLeaf = useMemo(() => wrapLoroRenderLeaf(renderLeaf), []);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorForOverlay = editor as any;
 
   const [showData, setShowData] = useState(false);
   const [loroData, setLoroData] = useState<unknown>(() => serializeLoroDoc(doc));
@@ -410,14 +413,16 @@ function PeerEditor({
       </div>
       <Slate editor={editor} initialValue={initialValue} onChange={handleChange}>
         <Toolbar />
-        <Editable
-          style={editableStyle}
-          renderElement={renderElement}
-          renderLeaf={wrappedRenderLeaf}
-          decorate={decorate}
-          onKeyDown={onKeyDown}
-          placeholder="Type something…"
-        />
+        <CursorOverlay editor={editorForOverlay}>
+          <Editable
+            style={editableStyle}
+            renderElement={renderElement}
+            renderLeaf={wrappedRenderLeaf}
+            decorate={decorate}
+            onKeyDown={onKeyDown}
+            placeholder="Type something…"
+          />
+        </CursorOverlay>
       </Slate>
       {showData && <DataPanel loroData={loroData} slateData={slateData} />}
     </div>
