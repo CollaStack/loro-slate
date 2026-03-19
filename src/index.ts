@@ -1,2 +1,2 @@
-export * from "./plugins";
-export * from "./decoration";
+export * from './plugins'
+export * from './decoration'

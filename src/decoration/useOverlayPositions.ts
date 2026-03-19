@@ -1,47 +1,65 @@
-import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
-import { type BaseRange } from "slate";
-import type { ReactEditor } from "slate-react";
+import {
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from 'react'
+import { type BaseEditor, type BaseRange } from 'slate'
+import type { ReactEditor } from 'slate-react'
 
-import type { LoroEditor } from "../plugins/with-loro";
-import type { CursorUser, LoroPresenceEditor, PresenceState } from "../plugins/with-loro-presence";
-import { cursorToSlatePoint } from "../plugins/with-loro-presence";
-import { peerToColor } from "./color-utils";
+import type { LoroEditor } from '../plugins/with-loro'
+import type {
+  CursorUser,
+  LoroPresenceEditor,
+  PresenceState,
+} from '../plugins/with-loro-presence'
+import { cursorToSlatePoint } from '../plugins/with-loro-presence'
+import { peerToColor } from './color-utils'
 import {
   getOverlayPosition,
   type CaretPosition,
   type OverlayPosition,
   type SelectionRect,
-} from "./getOverlayPosition";
+} from './getOverlayPosition'
 
 export interface CursorOverlayData {
-  peer: string;
-  user?: CursorUser;
-  color: string;
-  range: BaseRange | null;
-  caretPosition: CaretPosition | null;
-  selectionRects: SelectionRect[];
+  peer: string
+  user?: CursorUser
+  color: string
+  range: BaseRange | null
+  caretPosition: CaretPosition | null
+  selectionRects: SelectionRect[]
 }
 
-type LoroPresenceEditorFull = LoroEditor & LoroPresenceEditor & ReactEditor;
+type LoroPresenceEditorFull = LoroEditor &
+  LoroPresenceEditor &
+  ReactEditor &
+  BaseEditor
 
 interface ResolvedCursor {
-  peer: string;
-  user?: CursorUser;
-  color: string;
-  range: BaseRange;
+  peer: string
+  user?: CursorUser
+  color: string
+  range: BaseRange
 }
 
 function resolveCursors(editor: LoroPresenceEditorFull): ResolvedCursor[] {
-  const all = editor.presence.getAll();
-  const result: ResolvedCursor[] = [];
+  const all = editor.presence.getAll()
+  const result: ResolvedCursor[] = []
 
-  for (const [peer, state] of Object.entries(all) as [string, PresenceState][]) {
-    if (peer === editor.presence.key) continue;
-    if (!state.anchor || !state.focus) continue;
+  for (const [peer, state] of Object.entries(all) as [
+    string,
+    PresenceState,
+  ][]) {
+    if (peer === editor.presence.key) continue
+    if (!state.anchor || !state.focus) continue
 
-    const anchorPoint = cursorToSlatePoint(editor.doc, state.anchor);
-    const focusPoint = cursorToSlatePoint(editor.doc, state.focus);
-    if (!anchorPoint || !focusPoint) continue;
+    const anchorPoint = cursorToSlatePoint(editor.doc, state.anchor)
+    const focusPoint = cursorToSlatePoint(editor.doc, state.focus)
+    if (!anchorPoint || !focusPoint) continue
 
     result.push({
       peer,
@@ -51,95 +69,101 @@ function resolveCursors(editor: LoroPresenceEditorFull): ResolvedCursor[] {
         anchor: { path: anchorPoint.path, offset: anchorPoint.offset },
         focus: { path: focusPoint.path, offset: focusPoint.offset },
       },
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
-export function useOverlayPositions<TContainer extends HTMLElement = HTMLDivElement>(
+export function useOverlayPositions<
+  TContainer extends HTMLElement = HTMLDivElement,
+>(
   editor: LoroPresenceEditorFull,
-  containerRef: RefObject<TContainer | null>
+  containerRef: RefObject<TContainer | null>,
 ): CursorOverlayData[] {
-  const animationFrameRef = useRef<number | null>(null);
-  const [, startTransition] = useTransition();
+  const animationFrameRef = useRef<number | null>(null)
+  const [, startTransition] = useTransition()
 
-  const [cursors, setCursors] = useState<ResolvedCursor[]>(() => resolveCursors(editor));
+  const [cursors, setCursors] = useState<ResolvedCursor[]>(() =>
+    resolveCursors(editor),
+  )
 
   useEffect(() => {
     return editor.presence.store.subscribe((event) => {
-      if (event.by !== "local") {
-        setCursors(resolveCursors(editor));
+      if (event.by !== 'local') {
+        setCursors(resolveCursors(editor))
       }
-    });
-  }, [editor]);
+    })
+  }, [editor])
 
-  const overlayCache = useRef(new WeakMap<BaseRange, OverlayPosition>());
-  const [overlayPositions, setOverlayPositions] = useState<Record<string, OverlayPosition>>({});
+  const overlayCache = useRef(new WeakMap<BaseRange, OverlayPosition>())
+  const [overlayPositions, setOverlayPositions] = useState<
+    Record<string, OverlayPosition>
+  >({})
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+    const el = containerRef.current
+    if (!el) return
 
     const observer = new ResizeObserver(() => {
-      overlayCache.current = new WeakMap();
+      overlayCache.current = new WeakMap()
       if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+        cancelAnimationFrame(animationFrameRef.current)
       }
       animationFrameRef.current = requestAnimationFrame(() => {
-        animationFrameRef.current = null;
-        setCursors(resolveCursors(editor));
-      });
-    });
+        animationFrameRef.current = null
+        setCursors(resolveCursors(editor))
+      })
+    })
 
-    observer.observe(el);
+    observer.observe(el)
     return () => {
-      observer.disconnect();
+      observer.disconnect()
       if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+        cancelAnimationFrame(animationFrameRef.current)
       }
-    };
-  }, [containerRef, editor]);
+    }
+  }, [containerRef, editor])
 
   useLayoutEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) return
 
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const xOffset = containerRect.x;
-    const yOffset = containerRect.y - containerRef.current.scrollTop;
+    const containerRect = containerRef.current.getBoundingClientRect()
+    const xOffset = containerRect.x
+    const yOffset = containerRect.y - containerRef.current.scrollTop
 
-    const updated: Record<string, OverlayPosition> = {};
+    const updated: Record<string, OverlayPosition> = {}
     for (const cursor of cursors) {
-      const cached = overlayCache.current.get(cursor.range);
+      const cached = overlayCache.current.get(cursor.range)
       if (cached) {
-        updated[cursor.peer] = cached;
-        continue;
+        updated[cursor.peer] = cached
+        continue
       }
 
-      const pos = getOverlayPosition(editor, cursor.range, { xOffset, yOffset });
-      overlayCache.current.set(cursor.range, pos);
-      updated[cursor.peer] = pos;
+      const pos = getOverlayPosition(editor, cursor.range, { xOffset, yOffset })
+      overlayCache.current.set(cursor.range, pos)
+      updated[cursor.peer] = pos
     }
 
     startTransition(() => {
       setOverlayPositions((prev) => {
-        const updatedKeys = Object.keys(updated);
-        const prevKeys = Object.keys(prev);
+        const updatedKeys = Object.keys(updated)
+        const prevKeys = Object.keys(prev)
         if (
           updatedKeys.length === prevKeys.length &&
           updatedKeys.every((k) => prev[k] === updated[k])
         ) {
-          return prev;
+          return prev
         }
-        return updated;
-      });
-    });
-  }, [containerRef, cursors, editor]);
+        return updated
+      })
+    })
+  }, [containerRef, cursors, editor])
 
   return useMemo(
     () =>
       cursors.map((cursor) => {
-        const pos = overlayPositions[cursor.peer];
+        const pos = overlayPositions[cursor.peer]
         return {
           peer: cursor.peer,
           user: cursor.user,
@@ -147,8 +171,8 @@ export function useOverlayPositions<TContainer extends HTMLElement = HTMLDivElem
           range: cursor.range,
           caretPosition: pos?.caretPosition ?? null,
           selectionRects: pos?.selectionRects ?? [],
-        };
+        }
       }),
-    [cursors, overlayPositions]
-  );
+    [cursors, overlayPositions],
+  )
 }

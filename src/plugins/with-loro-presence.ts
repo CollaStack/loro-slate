@@ -1,19 +1,19 @@
-import { Cursor, EphemeralStore, type LoroDoc } from "loro-crdt";
-import { getLoroText } from "../utils";
-import { type Editor, type BaseSelection, type Path } from "slate";
-import type { LoroEditor } from "./with-loro";
+import { Cursor, EphemeralStore, type LoroDoc } from 'loro-crdt'
+import { getLoroText } from '../utils'
+import { type Editor, type BaseSelection, type Path } from 'slate'
+import type { LoroEditor } from './with-loro'
 
 // ────────────────────────────────────────────────────────────
 // Public types
 // ────────────────────────────────────────────────────────────
 
-export type CursorUser = { name: string; color: string };
+export type CursorUser = { name: string; color: string }
 
 /** Decoded presence state exposed to consumers. */
 export interface PresenceState {
-  anchor?: Cursor;
-  focus?: Cursor;
-  user?: CursorUser;
+  anchor?: Cursor
+  focus?: Cursor
+  user?: CursorUser
 }
 
 // ────────────────────────────────────────────────────────────
@@ -23,12 +23,12 @@ export interface PresenceState {
 // Cursors are serialized to Uint8Array because Cursor objects
 // cannot be stored directly in EphemeralStore (which only accepts Value).
 export type PresencePayload = {
-  anchor: Uint8Array | null;
-  focus: Uint8Array | null;
-  user: CursorUser | null;
-};
+  anchor: Uint8Array | null
+  focus: Uint8Array | null
+  user: CursorUser | null
+}
 
-export type PresenceMap = Record<string, PresencePayload>;
+export type PresenceMap = Record<string, PresencePayload>
 
 // ────────────────────────────────────────────────────────────
 // Plugin interface
@@ -37,28 +37,28 @@ export type PresenceMap = Record<string, PresencePayload>;
 export interface LoroPresenceEditor {
   presence: {
     /** The underlying EphemeralStore. Wire its subscribeLocalUpdates to your transport. */
-    store: EphemeralStore<PresenceMap>;
+    store: EphemeralStore<PresenceMap>
     /** This peer's unique key in the store (e.g. doc.peerIdStr). */
-    key: string;
+    key: string
     /** Update local user metadata (display name, cursor color). */
-    setUser(user: CursorUser): void;
+    setUser(user: CursorUser): void
     /** Get all active peers' decoded presence states. */
-    getAll(): Record<string, PresenceState>;
+    getAll(): Record<string, PresenceState>
     /** Remove this peer's entry from the store (call on unmount). */
-    disconnect(): void;
-  };
+    disconnect(): void
+  }
 }
 
 export interface LoroPresenceOptions {
   /** Shared EphemeralStore — the same instance on every peer. */
-  store: EphemeralStore<PresenceMap>;
+  store: EphemeralStore<PresenceMap>
   /**
    * Stable unique string for this peer.
    * Recommended: `doc.peerIdStr` or a user/session ID.
    */
-  key: string;
+  key: string
   /** Optional initial user metadata. */
-  user?: CursorUser;
+  user?: CursorUser
 }
 
 // ────────────────────────────────────────────────────────────
@@ -67,77 +67,82 @@ export interface LoroPresenceOptions {
 
 export function withLoroPresence<T extends LoroEditor & Editor>(
   e: T,
-  options: LoroPresenceOptions
+  options: LoroPresenceOptions,
 ): T & LoroPresenceEditor {
-  const _e = e as T & LoroPresenceEditor;
-  const { store, key } = options;
-  let user: CursorUser | null = options.user ?? null;
+  const _e = e as T & LoroPresenceEditor
+  const { store, key } = options
+  let user: CursorUser | null = options.user ?? null
 
   const pushToStore = () => {
-    const sel: BaseSelection = _e.selection;
+    const sel: BaseSelection = _e.selection
     if (!sel) {
       // Clear selection cursors but keep user info if present.
       if (user) {
-        store.set(key, { anchor: null, focus: null, user });
+        store.set(key, { anchor: null, focus: null, user })
       } else {
-        store.delete(key);
+        store.delete(key)
       }
-      return;
+      return
     }
 
-    const anchor = slatePointToCursor(_e.doc, sel.anchor.path, sel.anchor.offset);
+    const anchor = slatePointToCursor(
+      _e.doc,
+      sel.anchor.path,
+      sel.anchor.offset,
+    )
     const focus =
-      sel.focus.path === sel.anchor.path && sel.focus.offset === sel.anchor.offset
+      sel.focus.path === sel.anchor.path &&
+      sel.focus.offset === sel.anchor.offset
         ? anchor
-        : slatePointToCursor(_e.doc, sel.focus.path, sel.focus.offset);
+        : slatePointToCursor(_e.doc, sel.focus.path, sel.focus.offset)
 
     store.set(key, {
       anchor: anchor?.encode() ?? null,
       focus: focus?.encode() ?? null,
       user,
-    });
-  };
+    })
+  }
 
-  const { apply } = e;
+  const { apply } = e
   _e.apply = (op) => {
-    apply(op);
-    if (op.type === "set_selection") {
-      pushToStore();
+    apply(op)
+    if (op.type === 'set_selection') {
+      pushToStore()
     }
-  };
+  }
 
   // Publish initial presence immediately.
-  pushToStore();
+  pushToStore()
 
   _e.presence = {
     store,
     key,
 
     setUser(newUser: CursorUser) {
-      user = newUser;
-      pushToStore();
+      user = newUser
+      pushToStore()
     },
 
     getAll(): Record<string, PresenceState> {
-      const raw = store.getAllStates();
-      const result: Record<string, PresenceState> = {};
+      const raw = store.getAllStates()
+      const result: Record<string, PresenceState> = {}
       for (const [peer, payload] of Object.entries(raw)) {
-        if (!payload) continue;
+        if (!payload) continue
         result[peer] = {
           anchor: payload.anchor ? Cursor.decode(payload.anchor) : undefined,
           focus: payload.focus ? Cursor.decode(payload.focus) : undefined,
           user: payload.user ?? undefined,
-        };
+        }
       }
-      return result;
+      return result
     },
 
     disconnect() {
-      store.delete(key);
+      store.delete(key)
     },
-  };
+  }
 
-  return _e;
+  return _e
 }
 
 // ────────────────────────────────────────────────────────────
@@ -153,13 +158,13 @@ export function withLoroPresence<T extends LoroEditor & Editor>(
 export function slatePointToCursor(
   doc: LoroDoc,
   path: Path,
-  offset: number
+  offset: number,
 ): Cursor | undefined {
   try {
-    const lt = getLoroText(doc, path);
-    return lt.getCursor(offset) ?? undefined;
+    const lt = getLoroText(doc, path)
+    return lt.getCursor(offset) ?? undefined
   } catch {
-    return undefined;
+    return undefined
   }
 }
 
@@ -173,24 +178,23 @@ export function slatePointToCursor(
  */
 export function cursorToSlatePoint(
   doc: LoroDoc,
-  cursor: Cursor
+  cursor: Cursor,
 ): { path: Path; offset: number; update?: Cursor } | undefined {
-  const pos = doc.getCursorPos(cursor);
-  if (!pos) return undefined;
+  const pos = doc.getCursorPos(cursor)
+  if (!pos) return undefined
 
-  const containerId = cursor.containerId();
-  const loroPath = doc.getPathToContainer(containerId);
-  if (!loroPath) return undefined;
+  const containerId = cursor.containerId()
+  const loroPath = doc.getPathToContainer(containerId)
+  if (!loroPath) return undefined
 
   // The Loro path for a text node looks like:
   //   ["children", 0, "children", 1, "text"]
   // Extracting numeric indices yields the Slate path: [0, 1]
-  const slatePath = loroPath.filter((x): x is number => typeof x === "number");
+  const slatePath = loroPath.filter((x): x is number => typeof x === 'number')
 
   return {
     path: slatePath,
     offset: pos.offset,
     update: pos.update,
-  };
+  }
 }
-

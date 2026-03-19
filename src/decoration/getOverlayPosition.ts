@@ -1,108 +1,116 @@
-import { type BaseRange, Editor, Path, Range, Text } from "slate";
-import { ReactEditor } from "slate-react";
+import {
+  type BaseEditor,
+  type BaseRange,
+  Editor,
+  Path,
+  Range,
+  Text,
+} from 'slate'
+import { ReactEditor } from 'slate-react'
+
+type MinimalEditor = BaseEditor & ReactEditor
 
 export type SelectionRect = {
-  width: number;
-  height: number;
-  top: number;
-  left: number;
-};
+  width: number
+  height: number
+  top: number
+  left: number
+}
 
 export type CaretPosition = {
-  height: number;
-  top: number;
-  left: number;
-};
+  height: number
+  top: number
+  left: number
+}
 
 export type OverlayPosition = {
-  caretPosition: CaretPosition | null;
-  selectionRects: SelectionRect[];
-};
+  caretPosition: CaretPosition | null
+  selectionRects: SelectionRect[]
+}
 
 export type GetOverlayPositionOptions = {
-  xOffset: number;
-  yOffset: number;
-};
+  xOffset: number
+  yOffset: number
+}
 
 function toDOMRangeSafe(
-  editor: Editor,
-  range: BaseRange
+  editor: MinimalEditor,
+  range: BaseRange,
 ): globalThis.Range | null {
   try {
-    return ReactEditor.toDOMRange(editor as unknown as ReactEditor, range);
+    return ReactEditor.toDOMRange(editor as unknown as ReactEditor, range)
   } catch {
-    return null;
+    return null
   }
 }
 
 export function getOverlayPosition(
-  editor: Editor,
+  editor: MinimalEditor,
   range: BaseRange,
-  { xOffset, yOffset }: GetOverlayPositionOptions
+  { xOffset, yOffset }: GetOverlayPositionOptions,
 ): OverlayPosition {
-  const [start, end] = Range.edges(range);
-  const domRange = toDOMRangeSafe(editor, range);
+  const [start, end] = Range.edges(range)
+  const domRange = toDOMRangeSafe(editor, range)
   if (!domRange) {
-    return { caretPosition: null, selectionRects: [] };
+    return { caretPosition: null, selectionRects: [] }
   }
 
-  const selectionRects: SelectionRect[] = [];
-  let caretPosition: CaretPosition | null = null;
-  const isBackward = Range.isBackward(range);
+  const selectionRects: SelectionRect[] = []
+  let caretPosition: CaretPosition | null = null
+  const isBackward = Range.isBackward(range)
 
-  const re = editor as unknown as ReactEditor;
-  const nodeIterator = Editor.nodes(editor, {
+  const re = editor as unknown as ReactEditor
+  const nodeIterator = Editor.nodes(editor as Editor, {
     at: range,
     match: (n) => Text.isText(n),
-  });
+  })
 
   for (const [node, path] of nodeIterator) {
-    let domNode: HTMLElement;
+    let domNode: HTMLElement
     try {
-      domNode = ReactEditor.toDOMNode(re, node);
+      domNode = ReactEditor.toDOMNode(re, node)
     } catch {
-      continue;
+      continue
     }
-    if (!domNode.parentElement) continue;
+    if (!domNode.parentElement) continue
 
-    const isStartNode = Path.equals(path, start.path);
-    const isEndNode = Path.equals(path, end.path);
+    const isStartNode = Path.equals(path, start.path)
+    const isEndNode = Path.equals(path, end.path)
 
-    let clientRects: DOMRectList;
+    let clientRects: DOMRectList
     if (isStartNode || isEndNode) {
-      const nodeRange = document.createRange();
-      nodeRange.selectNode(domNode);
+      const nodeRange = document.createRange()
+      nodeRange.selectNode(domNode)
       if (isStartNode) {
-        nodeRange.setStart(domRange.startContainer, domRange.startOffset);
+        nodeRange.setStart(domRange.startContainer, domRange.startOffset)
       }
       if (isEndNode) {
-        nodeRange.setEnd(domRange.endContainer, domRange.endOffset);
+        nodeRange.setEnd(domRange.endContainer, domRange.endOffset)
       }
-      clientRects = nodeRange.getClientRects();
+      clientRects = nodeRange.getClientRects()
     } else {
-      clientRects = domNode.getClientRects();
+      clientRects = domNode.getClientRects()
     }
 
-    const isCaret = isBackward ? isStartNode : isEndNode;
+    const isCaret = isBackward ? isStartNode : isEndNode
 
     for (let i = 0; i < clientRects.length; i++) {
-      const rect = clientRects.item(i);
-      if (!rect) continue;
+      const rect = clientRects.item(i)
+      if (!rect) continue
 
-      const top = rect.top - yOffset;
-      const left = rect.left - xOffset;
+      const top = rect.top - yOffset
+      const left = rect.left - xOffset
 
       const isCaretRect =
-        isCaret && (isBackward ? i === 0 : i === clientRects.length - 1);
+        isCaret && (isBackward ? i === 0 : i === clientRects.length - 1)
 
       if (isCaretRect) {
         caretPosition = {
           height: rect.height,
           top,
           left:
-            left +
-            (isBackward || Range.isCollapsed(range) ? 0 : rect.width),
-        };
+            left + (isBackward || Range.isCollapsed(range) ? 0 : rect.width),
+        }
       }
 
       selectionRects.push({
@@ -110,9 +118,9 @@ export function getOverlayPosition(
         height: rect.height,
         top,
         left,
-      });
+      })
     }
   }
 
-  return { selectionRects, caretPosition };
+  return { selectionRects, caretPosition }
 }

@@ -1,50 +1,57 @@
-import React, { type CSSProperties, type PropsWithChildren, useRef } from "react";
-import type { ReactEditor } from "slate-react";
+import React, {
+  type CSSProperties,
+  type PropsWithChildren,
+  useRef,
+} from 'react'
+import type { ReactEditor } from 'slate-react'
 
-import type { LoroEditor } from "../plugins/with-loro";
-import type { LoroPresenceEditor } from "../plugins/with-loro-presence";
-import { useOverlayPositions, type CursorOverlayData } from "./useOverlayPositions";
+import type { LoroEditor } from '../plugins/with-loro'
+import type { LoroPresenceEditor } from '../plugins/with-loro-presence'
+import {
+  useOverlayPositions,
+  type CursorOverlayData,
+} from './useOverlayPositions'
 
-type LoroPresenceEditorFull = LoroEditor & LoroPresenceEditor & ReactEditor;
+type LoroPresenceEditorFull = LoroEditor & LoroPresenceEditor & ReactEditor
 
 function RemoteCaret({ data }: { data: CursorOverlayData }) {
-  if (!data.caretPosition) return null;
+  if (!data.caretPosition) return null
 
-  const name = data.user?.name ?? data.peer.slice(0, 8);
+  const name = data.user?.name ?? data.peer.slice(0, 8)
 
   const barStyle: CSSProperties = {
-    position: "absolute",
+    position: 'absolute',
     width: 2,
     backgroundColor: data.color,
     top: data.caretPosition.top,
     left: data.caretPosition.left,
     height: data.caretPosition.height,
-  };
+  }
 
   const labelStyle: CSSProperties = {
-    position: "absolute",
+    position: 'absolute',
     top: -2,
     left: 0,
-    transform: "translateY(-100%)",
+    transform: 'translateY(-100%)',
     backgroundColor: data.color,
-    color: "#fff",
-    fontSize: "0.7em",
+    color: '#fff',
+    fontSize: '0.7em',
     lineHeight: 1.2,
-    padding: "1px 5px",
-    borderRadius: "3px 3px 3px 0",
-    whiteSpace: "nowrap",
+    padding: '1px 5px',
+    borderRadius: '3px 3px 3px 0',
+    whiteSpace: 'nowrap',
     zIndex: 10,
-  };
+  }
 
   return (
     <div style={barStyle}>
       <span style={labelStyle}>{name}</span>
     </div>
-  );
+  )
 }
 
 function RemoteSelectionRects({ data }: { data: CursorOverlayData }) {
-  if (data.selectionRects.length === 0) return null;
+  if (data.selectionRects.length === 0) return null
 
   return (
     <>
@@ -52,7 +59,7 @@ function RemoteSelectionRects({ data }: { data: CursorOverlayData }) {
         <div
           key={i}
           style={{
-            position: "absolute",
+            position: 'absolute',
             backgroundColor: `color-mix(in srgb, ${data.color} 30%, transparent)`,
             top: rect.top,
             left: rect.left,
@@ -62,25 +69,25 @@ function RemoteSelectionRects({ data }: { data: CursorOverlayData }) {
         />
       ))}
     </>
-  );
+  )
 }
 
 const overlayStyle: CSSProperties = {
-  position: "absolute",
+  position: 'absolute',
   inset: 0,
-  pointerEvents: "none",
+  pointerEvents: 'none',
   zIndex: 1,
-};
+}
 
 export function CursorOverlay({
   editor,
   children,
 }: PropsWithChildren<{ editor: LoroPresenceEditorFull }>) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cursors = useOverlayPositions(editor, containerRef);
+  const containerRef = useRef<HTMLDivElement>(null)
+  const cursors = useOverlayPositions(editor, containerRef)
 
   return (
-    <div ref={containerRef} style={{ position: "relative" }}>
+    <div ref={containerRef} style={{ position: 'relative' }}>
       {children}
       <div style={overlayStyle}>
         {cursors.map((cursor) => (
@@ -91,5 +98,5 @@ export function CursorOverlay({
         ))}
       </div>
     </div>
-  );
+  )
 }
