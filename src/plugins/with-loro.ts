@@ -55,10 +55,10 @@ export function withLoro<T extends Editor>(
   const { apply, normalizeNode } = e
 
   // Ensure editor always has at least 1 valid child
-  e.normalizeNode = (entry, options) => {
+  e.normalizeNode = (entry, _opts) => {
     const [node] = entry
     if (!Editor.isEditor(node) || node.children.length > 0) {
-      return normalizeNode(entry, options)
+      return normalizeNode(entry, _opts)
     }
     Transforms.insertNodes(e, emptyLine, { at: [0] })
   }
